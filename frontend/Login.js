@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Image,
     KeyboardAvoidingView,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useAuth } from './src/context/AuthContext';
 import { colors } from './src/theme/colors';
 
 const logo = require('./assets/images/logo.png');
@@ -21,15 +22,27 @@ const fontFamily = Platform.select({
     default: 'Poppins',
 });
 
-const Login = ({ navigation }) => {
+const Login = ({ navigation, route }) => {
+    const { registeredAccount } = useAuth();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [focusedField, setFocusedField] = useState(null);
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
     const passwordInputRef = useRef(null);
 
+    useEffect(() => {
+        if (route.params?.registeredUsername) {
+            setUsername(route.params.registeredUsername);
+        }
+    }, [route.params?.registeredUsername]);
+
     const handleLogin = () => {
-        if (username === 'yago' && password === '123') {
+        const isDefaultAccount = username === 'yago' && password === '123';
+        const isRegisteredAccount =
+            registeredAccount?.username === username &&
+            registeredAccount?.password === password;
+
+        if (isDefaultAccount || isRegisteredAccount) {
             alert('Login bem-sucedido');
             navigation.navigate('Menu');
         } else {
@@ -68,7 +81,9 @@ const Login = ({ navigation }) => {
                                 />
                                 <Text style={styles.eyebrowText}>BEM-VINDO AO PETEATS</Text>
                             </View>
-                            <Text style={styles.title}>Acesse sua conta</Text>
+                            <Text accessibilityRole="header" style={styles.title}>
+                                Acesse sua conta
+                            </Text>
                             <Text style={styles.subtitle}>
                                 Entre para cuidar de quem faz parte da família.
                             </Text>
@@ -93,6 +108,7 @@ const Login = ({ navigation }) => {
                                         size={20}
                                     />
                                     <TextInput
+                                        accessibilityLabel="Usuário"
                                         autoCapitalize="none"
                                         autoCorrect={false}
                                         placeholder="Digite seu usuário"
@@ -127,6 +143,7 @@ const Login = ({ navigation }) => {
                                     />
                                     <TextInput
                                         ref={passwordInputRef}
+                                        accessibilityLabel="Senha"
                                         autoCapitalize="none"
                                         placeholder="Digite sua senha"
                                         placeholderTextColor={colors.textSecondary}
@@ -158,6 +175,7 @@ const Login = ({ navigation }) => {
                             </View>
 
                             <Pressable
+                                accessibilityLabel="Entrar na conta"
                                 accessibilityRole="button"
                                 style={({ pressed }) => [
                                     styles.button,
@@ -172,6 +190,18 @@ const Login = ({ navigation }) => {
                                     size={20}
                                 />
                             </Pressable>
+
+                            <View style={styles.registerRow}>
+                                <Text style={styles.registerText}>Ainda não tem uma conta?</Text>
+                                <Pressable
+                                    accessibilityHint="Abre o formulário para criar uma conta"
+                                    accessibilityRole="link"
+                                    hitSlop={10}
+                                    onPress={() => navigation.navigate('Registro')}
+                                >
+                                    <Text style={styles.registerLink}>Cadastre-se</Text>
+                                </Pressable>
+                            </View>
 
                             <View style={styles.securityNote}>
                                 <Ionicons
@@ -238,9 +268,9 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     eyebrowText: {
-        color: colors.accent,
+        color: colors.primary,
         fontFamily,
-        fontSize: 11,
+        fontSize: 12,
         fontWeight: '700',
         letterSpacing: 1.1,
     },
@@ -343,6 +373,26 @@ const styles = StyleSheet.create({
         color: colors.textSecondary,
         fontFamily,
         fontSize: 12,
+    },
+    registerRow: {
+        alignItems: 'center',
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 6,
+        justifyContent: 'center',
+        marginTop: 2,
+    },
+    registerText: {
+        color: colors.textSecondary,
+        fontFamily,
+        fontSize: 14,
+    },
+    registerLink: {
+        color: colors.primary,
+        fontFamily,
+        fontSize: 14,
+        fontWeight: '700',
+        textDecorationLine: 'underline',
     },
 });
 
