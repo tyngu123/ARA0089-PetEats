@@ -51,8 +51,8 @@ const Menu = ({ navigation }) => {
           </View>
 
           <Pressable
-            accessibilityHint="Abre a tela de controle de clientes"
-            accessibilityLabel="Acessar clientes"
+            accessibilityHint="Abre a lista de petshops"
+            accessibilityLabel="Acessar petshops"
             accessibilityRole="button"
             style={({ pressed }) => [
               styles.menuCard,
@@ -61,11 +61,11 @@ const Menu = ({ navigation }) => {
             onPress={() => navigation.navigate('Cliente')}
           >
             <View style={styles.iconContainer}>
-              <Ionicons color={colors.primary} name="people-outline" size={28} />
+              <Ionicons color={colors.primary} name="storefront-outline" size={28} />
             </View>
             <View style={styles.cardCopy}>
-              <Text style={styles.cardTitle}>Clientes</Text>
-              <Text style={styles.cardDescription}>Acesse o controle de clientes</Text>
+              <Text style={styles.cardTitle}>Petshops</Text>
+              <Text style={styles.cardDescription}>Conheça as lojas disponíveis</Text>
             </View>
             <Ionicons color={colors.accent} name="chevron-forward" size={23} />
           </Pressable>

@@ -41,7 +41,7 @@ const App = () => {
           <Stack.Screen
             name="Cliente"
             component={Cliente}
-            options={{ title: 'Clientes' }}
+            options={{ title: 'Petshops' }}
           />
         </Stack.Navigator>
       </NavigationContainer>
