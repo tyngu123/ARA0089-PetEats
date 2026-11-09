@@ -1,0 +1,36 @@
+# Blueprint do Render: cria a API (Node) e a versão web do app (site estático).
+# No Render: New > Blueprint > escolha este repositório.
+services:
+  - type: web
+    name: peteats-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        sync: false # cole a "Service URI" do MySQL do Aiven
+      - key: DB_SSL
+        value: "true"
+      - key: DB_SSL_CA
+        sync: false # opcional: conteúdo do "CA certificate" do Aiven
+      - key: SEED_DEMO
+        value: "true"
+
+  - type: web
+    name: peteats-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npx expo export --platform web
+    staticPublishPath: dist
+    envVars:
+      - key: EXPO_PUBLIC_API_URL
+        sync: false # URL da API, ex.: https://peteats-api.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

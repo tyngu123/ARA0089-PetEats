@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const { createApp } = require('./app');
 const { createPool } = require('./db');
+const { prepareDatabase } = require('./database');
 
 const port = Number(process.env.PORT) || 3000;
 
@@ -9,7 +10,8 @@ const start = async () => {
   const pool = createPool();
 
   try {
-    await pool.query('SELECT id FROM petshops LIMIT 1');
+    // Cria as tabelas (se ainda não existirem) e as contas de demonstração.
+    await prepareDatabase(pool, { seed: process.env.SEED_DEMO !== 'false' });
     const app = createApp(pool);
 
     app.listen(port, '0.0.0.0', () => {

@@ -1,31 +1,18 @@
 require('dotenv').config();
 
-const { readFileSync } = require('node:fs');
-const path = require('node:path');
-const mysql = require('mysql2/promise');
-
-const { connectionOptions } = require('./db');
+const { createPool } = require('./db');
+const { prepareDatabase } = require('./database');
 
 const setup = async () => {
-  const sql = readFileSync(path.join(__dirname, '..', 'database', 'setup.sql'), 'utf8');
-  let connection;
-
+  const pool = createPool();
   try {
-    connection = await mysql.createConnection({
-      ...connectionOptions,
-      multipleStatements: true,
-      connectTimeout: 5000,
-    });
-
-    await connection.query(sql);
-    console.log('Banco peteats e petshops de demonstração preparados.');
+    await prepareDatabase(pool, { seed: process.env.SEED_DEMO !== 'false' });
+    console.log('Banco PetEats preparado (tabelas e contas de demonstração).');
   } catch (error) {
     console.error('Falha ao preparar o banco MySQL:', error.code || error.message);
     process.exitCode = 1;
   } finally {
-    if (connection) {
-      await connection.end();
-    }
+    await pool.end();
   }
 };
 

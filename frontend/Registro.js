@@ -1,306 +1,248 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { StatusBar } from 'expo-status-bar';
 import React, { useRef, useState } from 'react';
-import {
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Image, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Field, PrimaryButton, Text, showMessage } from './src/components/ui';
 import { useAuth } from './src/context/AuthContext';
 import { colors } from './src/theme/colors';
 
 const logo = require('./assets/images/logo.png');
-const fontFamily = Platform.select({
-  web: 'Poppins, Nunito, sans-serif',
-  default: 'Poppins',
-});
 
-const showMessage = (title, message) => {
-  if (Platform.OS === 'web') {
-    globalThis.alert(`${title}\n\n${message}`);
-    return;
-  }
-
-  Alert.alert(title, message);
-};
+const roles = [
+  { id: 'cliente', icon: 'paw-outline', title: 'Sou cliente' },
+  { id: 'empresa', icon: 'storefront-outline', title: 'Sou empresa' },
+];
 
 const Registro = ({ navigation }) => {
-  const { registerAccount } = useAuth();
-  const [name, setName] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [passwordConfirmation, setPasswordConfirmation] = useState('');
-  const [focusedField, setFocusedField] = useState(null);
+  const { register } = useAuth();
+  const [role, setRole] = useState('cliente');
+  const [form, setForm] = useState({
+    name: '',
+    username: '',
+    password: '',
+    passwordConfirmation: '',
+    phone: '',
+    address: '',
+    storeName: '',
+    neighborhood: '',
+    deliveryFee: '',
+  });
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const [isConfirmationVisible, setIsConfirmationVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const usernameInputRef = useRef(null);
-  const passwordInputRef = useRef(null);
-  const confirmationInputRef = useRef(null);
+  // No Android o teclado cobre a parte de baixo da tela. Guardamos a posição de
+  // cada campo e, ao tocar nele, rolamos a tela para deixá-lo visível.
+  const scrollRef = useRef(null);
+  const positions = useRef({ content: 0, form: 0, fields: {} });
+  const track = (key) => ({
+    onLayout: (event) => {
+      positions.current.fields[key] = event.nativeEvent.layout.y;
+    },
+    onFocus: () => {
+      setTimeout(() => {
+        const { content, form, fields } = positions.current;
+        scrollRef.current?.scrollTo({ y: Math.max(content + form + (fields[key] || 0) - 16, 0), animated: true });
+      }, 250);
+    },
+  });
 
-  const handleRegister = () => {
-    if (!name.trim() || !username.trim() || !password || !passwordConfirmation) {
+  const set = (key) => (value) => setForm((current) => ({ ...current, [key]: value }));
+  const isCompany = role === 'empresa';
+
+  const handleRegister = async () => {
+    const required = ['name', 'username', 'password', 'passwordConfirmation', 'address'];
+    if (isCompany) required.push('storeName', 'neighborhood');
+    if (required.some((key) => !form[key].trim())) {
       showMessage('Campos obrigatórios', 'Preencha todos os campos para continuar.');
       return;
     }
-
-    if (password.length < 6) {
+    if (form.password.length < 6) {
       showMessage('Senha muito curta', 'Use pelo menos 6 caracteres na senha.');
       return;
     }
-
-    if (password !== passwordConfirmation) {
+    if (form.password !== form.passwordConfirmation) {
       showMessage('Senhas diferentes', 'Confira a confirmação da senha.');
       return;
     }
 
-    registerAccount({
-      name: name.trim(),
-      username: username.trim(),
-      password,
-    });
-
-    showMessage('Cadastro concluído', 'Sua conta foi criada com sucesso.');
-    navigation.navigate('Login', { registeredUsername: username.trim() });
+    setIsLoading(true);
+    try {
+      // O cadastro é salvo no banco de dados na nuvem e já entra na conta.
+      await register({
+        role,
+        name: form.name.trim(),
+        username: form.username.trim().toLowerCase(),
+        password: form.password,
+        phone: form.phone.trim(),
+        address: form.address.trim(),
+        storeName: form.storeName.trim(),
+        neighborhood: form.neighborhood.trim(),
+        deliveryFee: form.deliveryFee.trim() || '0',
+      });
+    } catch (error) {
+      setIsLoading(false);
+      showMessage('Não foi possível cadastrar', error.message);
+    }
   };
 
-  const renderVisibilityButton = (visible, onPress, label) => (
+  const visibility = (
     <Pressable
-      accessibilityLabel={visible ? `Ocultar ${label}` : `Mostrar ${label}`}
+      accessibilityLabel={isPasswordVisible ? 'Ocultar senha' : 'Mostrar senha'}
       accessibilityRole="button"
       hitSlop={10}
-      style={styles.visibilityButton}
-      onPress={onPress}
+      onPress={() => setIsPasswordVisible((visible) => !visible)}
     >
       <Ionicons
         color={colors.textSecondary}
-        name={visible ? 'eye-off-outline' : 'eye-outline'}
-        size={21}
+        name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
+        size={20}
       />
     </Pressable>
   );
 
+  // Tela de cadastro no mesmo estilo da tela 1 do Figma.
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardView}
-      >
+      <StatusBar style="dark" />
+      <KeyboardAvoidingView behavior="padding" style={styles.flex}>
         <ScrollView
+          ref={scrollRef}
+          automaticallyAdjustKeyboardInsets
           contentContainerStyle={styles.container}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.content}>
-            <Pressable
-              accessibilityHint="Retorna para a tela de login"
-              accessibilityLabel="Voltar para o login"
-              accessibilityRole="button"
-              hitSlop={10}
-              style={styles.backButton}
-              onPress={() => navigation.goBack()}
+          <View
+            style={styles.content}
+            onLayout={(event) => {
+              positions.current.content = event.nativeEvent.layout.y;
+            }}
+          >
+            <Image accessibilityLabel="Logo PetEats" resizeMode="contain" source={logo} style={styles.logo} />
+            <Text style={styles.subtitle}>
+              Ração e petiscos do pet shop do seu bairro, entregues na sua porta.
+            </Text>
+
+            <View style={styles.segment}>
+              {roles.map((option) => {
+                const active = role === option.id;
+                return (
+                  <Pressable
+                    key={option.id}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: active }}
+                    style={[styles.segmentItem, active && styles.segmentItemActive]}
+                    onPress={() => setRole(option.id)}
+                  >
+                    <Ionicons color={active ? colors.surface : colors.textSecondary} name={option.icon} size={16} />
+                    <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{option.title}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View
+              style={styles.form}
+              onLayout={(event) => {
+                positions.current.form = event.nativeEvent.layout.y;
+              }}
             >
-              <Ionicons color={colors.primary} name="arrow-back" size={22} />
-              <Text style={styles.backButtonText}>Voltar</Text>
-            </Pressable>
-
-            <View style={styles.logoArea}>
-              <View style={styles.logoGlow} />
-              <Image
-                accessibilityLabel="Logo PetEats"
-                resizeMode="contain"
-                source={logo}
-                style={styles.logo}
+              <Field
+                {...track('name')}
+                autoCapitalize="words"
+                label={isCompany ? 'Nome do responsável' : 'Nome completo'}
+                placeholder="Maria da Silva"
+                value={form.name}
+                onChangeText={set('name')}
               />
-            </View>
-
-            <View style={styles.header}>
-              <View style={styles.eyebrow}>
-                <Ionicons color={colors.accent} name="paw-outline" size={15} />
-                <Text style={styles.eyebrowText}>FAÇA PARTE DO PETEATS</Text>
-              </View>
-              <Text accessibilityRole="header" style={styles.title}>
-                Crie sua conta
-              </Text>
-              <Text style={styles.subtitle}>Preencha seus dados para começar.</Text>
-            </View>
-
-            <View style={styles.form}>
-              <View style={styles.field}>
-                <Text style={styles.label}>Nome completo</Text>
-                <View
-                  style={[
-                    styles.inputContainer,
-                    focusedField === 'name' && styles.inputFocused,
-                  ]}
-                >
-                  <Ionicons
-                    color={focusedField === 'name' ? colors.primary : colors.textSecondary}
-                    name="person-outline"
-                    size={20}
-                  />
-                  <TextInput
-                    accessibilityLabel="Nome completo"
+              {isCompany && (
+                <>
+                  <Field
+                    {...track('storeName')}
                     autoCapitalize="words"
-                    autoComplete="name"
-                    placeholder="Digite seu nome"
-                    placeholderTextColor={colors.textSecondary}
-                    returnKeyType="next"
-                    style={styles.input}
-                    value={name}
-                    onBlur={() => setFocusedField(null)}
-                    onChangeText={setName}
-                    onFocus={() => setFocusedField('name')}
-                    onSubmitEditing={() => usernameInputRef.current?.focus()}
+                    label="Nome da loja"
+                    placeholder="Pet Shop do Bairro"
+                    value={form.storeName}
+                    onChangeText={set('storeName')}
                   />
-                </View>
-              </View>
+                  <Field
+                    {...track('neighborhood')}
+                    autoCapitalize="words"
+                    label="Bairro / cidade"
+                    placeholder="Icaraí, Niterói"
+                    value={form.neighborhood}
+                    onChangeText={set('neighborhood')}
+                  />
+                </>
+              )}
+              <Field
+                {...track('username')}
+                autoCapitalize="none"
+                autoCorrect={false}
+                label="Usuário"
+                placeholder="seu usuário (sem espaços)"
+                value={form.username}
+                onChangeText={set('username')}
+              />
+              <Field
+                {...track('phone')}
+                keyboardType="phone-pad"
+                label="Telefone (WhatsApp)"
+                placeholder="(21) 9 0000-0000"
+                value={form.phone}
+                onChangeText={set('phone')}
+              />
+              <Field
+                {...track('address')}
+                label={isCompany ? 'Endereço da loja' : 'Endereço de entrega'}
+                placeholder="Rua Exemplo, 123 – Icaraí, Niterói"
+                value={form.address}
+                onChangeText={set('address')}
+              />
+              {isCompany && (
+                <Field
+                  {...track('deliveryFee')}
+                  keyboardType="decimal-pad"
+                  label="Taxa de entrega (R$)"
+                  placeholder="5,00"
+                  value={form.deliveryFee}
+                  onChangeText={set('deliveryFee')}
+                />
+              )}
+              <Field
+                {...track('password')}
+                autoCapitalize="none"
+                label="Senha"
+                placeholder="mínimo de 6 caracteres"
+                right={visibility}
+                secureTextEntry={!isPasswordVisible}
+                value={form.password}
+                onChangeText={set('password')}
+              />
+              <Field
+                {...track('passwordConfirmation')}
+                autoCapitalize="none"
+                label="Confirmar senha"
+                placeholder="digite a senha novamente"
+                secureTextEntry={!isPasswordVisible}
+                value={form.passwordConfirmation}
+                onChangeText={set('passwordConfirmation')}
+                onSubmitEditing={handleRegister}
+              />
 
-              <View style={styles.field}>
-                <Text style={styles.label}>Usuário</Text>
-                <View
-                  style={[
-                    styles.inputContainer,
-                    focusedField === 'username' && styles.inputFocused,
-                  ]}
-                >
-                  <Ionicons
-                    color={
-                      focusedField === 'username' ? colors.primary : colors.textSecondary
-                    }
-                    name="at-outline"
-                    size={20}
-                  />
-                  <TextInput
-                    ref={usernameInputRef}
-                    accessibilityLabel="Usuário"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    placeholder="Escolha um usuário"
-                    placeholderTextColor={colors.textSecondary}
-                    returnKeyType="next"
-                    style={styles.input}
-                    value={username}
-                    onBlur={() => setFocusedField(null)}
-                    onChangeText={setUsername}
-                    onFocus={() => setFocusedField('username')}
-                    onSubmitEditing={() => passwordInputRef.current?.focus()}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.field}>
-                <Text style={styles.label}>Senha</Text>
-                <View
-                  style={[
-                    styles.inputContainer,
-                    focusedField === 'password' && styles.inputFocused,
-                  ]}
-                >
-                  <Ionicons
-                    color={
-                      focusedField === 'password' ? colors.primary : colors.textSecondary
-                    }
-                    name="lock-closed-outline"
-                    size={20}
-                  />
-                  <TextInput
-                    ref={passwordInputRef}
-                    accessibilityHint="Use pelo menos 6 caracteres"
-                    accessibilityLabel="Senha"
-                    autoCapitalize="none"
-                    autoComplete="new-password"
-                    placeholder="Crie uma senha"
-                    placeholderTextColor={colors.textSecondary}
-                    returnKeyType="next"
-                    secureTextEntry={!isPasswordVisible}
-                    style={styles.input}
-                    value={password}
-                    onBlur={() => setFocusedField(null)}
-                    onChangeText={setPassword}
-                    onFocus={() => setFocusedField('password')}
-                    onSubmitEditing={() => confirmationInputRef.current?.focus()}
-                  />
-                  {renderVisibilityButton(
-                    isPasswordVisible,
-                    () => setIsPasswordVisible((visible) => !visible),
-                    'senha'
-                  )}
-                </View>
-                <Text style={styles.helperText}>Use pelo menos 6 caracteres</Text>
-              </View>
-
-              <View style={styles.field}>
-                <Text style={styles.label}>Confirmar senha</Text>
-                <View
-                  style={[
-                    styles.inputContainer,
-                    focusedField === 'confirmation' && styles.inputFocused,
-                  ]}
-                >
-                  <Ionicons
-                    color={
-                      focusedField === 'confirmation'
-                        ? colors.primary
-                        : colors.textSecondary
-                    }
-                    name="checkmark-circle-outline"
-                    size={20}
-                  />
-                  <TextInput
-                    ref={confirmationInputRef}
-                    accessibilityLabel="Confirmar senha"
-                    autoCapitalize="none"
-                    autoComplete="new-password"
-                    placeholder="Digite a senha novamente"
-                    placeholderTextColor={colors.textSecondary}
-                    returnKeyType="done"
-                    secureTextEntry={!isConfirmationVisible}
-                    style={styles.input}
-                    value={passwordConfirmation}
-                    onBlur={() => setFocusedField(null)}
-                    onChangeText={setPasswordConfirmation}
-                    onFocus={() => setFocusedField('confirmation')}
-                    onSubmitEditing={handleRegister}
-                  />
-                  {renderVisibilityButton(
-                    isConfirmationVisible,
-                    () => setIsConfirmationVisible((visible) => !visible),
-                    'confirmação da senha'
-                  )}
-                </View>
-              </View>
-
-              <Pressable
-                accessibilityLabel="Criar conta"
-                accessibilityRole="button"
-                style={({ pressed }) => [
-                  styles.button,
-                  pressed && styles.buttonPressed,
-                ]}
+              <PrimaryButton
+                label={isCompany ? 'Cadastrar loja' : 'Criar conta'}
+                loading={isLoading}
+                style={styles.button}
                 onPress={handleRegister}
-              >
-                <Text style={styles.buttonText}>Criar conta</Text>
-                <Ionicons color={colors.surface} name="arrow-forward" size={20} />
-              </Pressable>
+              />
 
-              <View style={styles.loginRow}>
-                <Text style={styles.loginText}>Já tem uma conta?</Text>
-                <Pressable
-                  accessibilityHint="Retorna para a tela de login"
-                  accessibilityRole="link"
-                  hitSlop={10}
-                  onPress={() => navigation.navigate('Login')}
-                >
-                  <Text style={styles.loginLink}>Entrar</Text>
+              <View style={styles.linkRow}>
+                <Text style={styles.linkText}>Já tem conta?</Text>
+                <Pressable accessibilityRole="link" hitSlop={10} onPress={() => navigation.navigate('Login')}>
+                  <Text style={styles.link}>Entrar</Text>
                 </Pressable>
               </View>
             </View>
@@ -313,182 +255,89 @@ const Registro = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     flex: 1,
   },
-  keyboardView: {
+  flex: {
     flex: 1,
   },
   container: {
     alignItems: 'center',
     flexGrow: 1,
+    paddingBottom: 32,
     paddingHorizontal: 24,
-    paddingVertical: 24,
+    paddingTop: 16,
   },
   content: {
+    alignItems: 'center',
     maxWidth: 420,
     width: '100%',
   },
-  backButton: {
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    gap: 7,
-    minHeight: 44,
-  },
-  backButtonText: {
-    color: colors.primary,
-    fontFamily,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  logoArea: {
-    alignItems: 'center',
-    height: 116,
-    justifyContent: 'center',
-    marginBottom: 10,
-    position: 'relative',
-  },
-  logoGlow: {
-    backgroundColor: colors.primaryLight,
-    borderRadius: 70,
-    height: 82,
-    opacity: 0.26,
-    position: 'absolute',
-    width: 132,
-  },
   logo: {
-    height: 110,
-    width: 178,
-  },
-  header: {
-    marginBottom: 26,
-  },
-  eyebrow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 6,
-    justifyContent: 'center',
-    marginBottom: 9,
-  },
-  eyebrowText: {
-    color: colors.primary,
-    fontFamily,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1.1,
-  },
-  title: {
-    color: colors.text,
-    fontFamily,
-    fontSize: 30,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-    textAlign: 'center',
+    height: 120,
+    width: 190,
   },
   subtitle: {
     color: colors.textSecondary,
-    fontFamily,
-    fontSize: 15,
-    lineHeight: 22,
-    marginTop: 8,
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: 18,
+    marginTop: 4,
+    paddingHorizontal: 18,
     textAlign: 'center',
   },
-  form: {
-    gap: 18,
-  },
-  field: {
-    gap: 8,
-  },
-  label: {
-    color: colors.text,
-    fontFamily,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  inputContainer: {
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderColor: colors.primaryLight,
-    borderRadius: 14,
-    borderWidth: 1,
+  segment: {
+    alignSelf: 'stretch',
+    backgroundColor: colors.background,
+    borderRadius: 12,
     flexDirection: 'row',
-    height: 54,
-    paddingHorizontal: 16,
+    gap: 4,
+    marginBottom: 14,
+    padding: 4,
   },
-  inputFocused: {
-    borderColor: colors.primary,
-    elevation: 2,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 9,
-  },
-  input: {
-    color: colors.text,
+  segmentItem: {
+    alignItems: 'center',
+    borderRadius: 9,
     flex: 1,
-    fontFamily,
-    fontSize: 15,
-    height: '100%',
-    paddingHorizontal: 12,
-    paddingVertical: 0,
-  },
-  visibilityButton: {
-    alignItems: 'center',
-    height: 38,
-    justifyContent: 'center',
-    marginRight: -8,
-    width: 38,
-  },
-  helperText: {
-    color: colors.textSecondary,
-    fontFamily,
-    fontSize: 12,
-  },
-  button: {
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: 14,
-    elevation: 4,
     flexDirection: 'row',
-    gap: 10,
-    height: 54,
-    justifyContent: 'center',
-    marginTop: 6,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-  },
-  buttonPressed: {
-    opacity: 0.84,
-    transform: [{ scale: 0.99 }],
-  },
-  buttonText: {
-    color: colors.surface,
-    fontFamily,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  loginRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 6,
     justifyContent: 'center',
-    marginBottom: 8,
+    paddingVertical: 9,
   },
-  loginText: {
+  segmentItemActive: {
+    backgroundColor: colors.primary,
+  },
+  segmentText: {
     color: colors.textSecondary,
-    fontFamily,
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '500',
   },
-  loginLink: {
-    color: colors.primary,
-    fontFamily,
-    fontSize: 14,
-    fontWeight: '700',
-    textDecorationLine: 'underline',
+  segmentTextActive: {
+    color: colors.surface,
+    fontWeight: '600',
+  },
+  form: {
+    alignSelf: 'stretch',
+    gap: 10,
+  },
+  button: {
+    marginTop: 6,
+  },
+  linkRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 5,
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  linkText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+  },
+  link: {
+    color: colors.accent,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
 
