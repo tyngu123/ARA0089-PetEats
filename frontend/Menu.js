@@ -1,211 +1,161 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { StatusBar } from 'expo-status-bar';
 import React from 'react';
-import {
-  Image,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BottomNav, GreenHeader, LogoBadge, Text } from './src/components/ui';
+import { useAuth } from './src/context/AuthContext';
+import { useCart } from './src/context/CartContext';
 import { colors } from './src/theme/colors';
 
-const logo = require('./assets/images/logo.png');
-const fontFamily = Platform.select({
-  web: 'Poppins, Nunito, sans-serif',
-  default: 'Poppins',
-});
-
+// Aba "Perfil" da barra inferior: dados do cliente e saída da conta.
 const Menu = ({ navigation }) => {
+  const { user, logout } = useAuth();
+  const cart = useCart();
+  const initials = (user?.name || '?')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('');
+
+  const rows = [
+    { icon: 'at-outline', label: 'Usuário', value: user?.username },
+    { icon: 'call-outline', label: 'Telefone', value: user?.phone || 'Não informado' },
+    { icon: 'location-outline', label: 'Endereço de entrega', value: user?.address || 'Não informado' },
+  ];
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.content}>
-          <View style={styles.brandRow}>
-            <Image
-              accessibilityLabel="Logo PetEats"
-              resizeMode="contain"
-              source={logo}
-              style={styles.logo}
-            />
-            <View style={styles.brandCopy}>
-              <View style={styles.eyebrow}>
-                <Ionicons color={colors.accent} name="paw-outline" size={15} />
-                <Text style={styles.eyebrowText}>PAINEL PETEATS</Text>
-              </View>
-              <Text style={styles.welcome}>Olá, Yago</Text>
-            </View>
-          </View>
+    <View style={styles.screen}>
+      <StatusBar style="light" />
+      <SafeAreaView edges={['top', 'left', 'right']} style={styles.headerArea}>
+        <GreenHeader right={<LogoBadge />} title="Meu perfil" />
+      </SafeAreaView>
 
-          <View style={styles.header}>
-            <Text accessibilityRole="header" style={styles.title}>
-              O que você deseja acessar?
-            </Text>
-            <Text style={styles.subtitle}>Escolha uma opção para continuar.</Text>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.card}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initials}</Text>
           </View>
-
-          <Pressable
-            accessibilityHint="Abre a lista de petshops"
-            accessibilityLabel="Acessar petshops"
-            accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.menuCard,
-              pressed && styles.menuCardPressed,
-            ]}
-            onPress={() => navigation.navigate('Cliente')}
-          >
-            <View style={styles.iconContainer}>
-              <Ionicons color={colors.primary} name="storefront-outline" size={28} />
-            </View>
-            <View style={styles.cardCopy}>
-              <Text style={styles.cardTitle}>Petshops</Text>
-              <Text style={styles.cardDescription}>Conheça as lojas disponíveis</Text>
-            </View>
-            <Ionicons color={colors.accent} name="chevron-forward" size={23} />
-          </Pressable>
-
-          <View style={styles.securityNote}>
-            <Ionicons
-              color={colors.primary}
-              name="shield-checkmark-outline"
-              size={16}
-            />
-            <Text style={styles.securityText}>Ambiente seguro PetEats</Text>
-          </View>
+          <Text style={styles.name}>{user?.name}</Text>
+          <Text style={styles.role}>Cliente PetEats</Text>
         </View>
+
+        <View style={styles.card}>
+          {rows.map((row) => (
+            <View key={row.label} style={styles.row}>
+              <Ionicons color={colors.primary} name={row.icon} size={18} />
+              <View style={styles.rowText}>
+                <Text style={styles.rowLabel}>{row.label}</Text>
+                <Text style={styles.rowValue}>{row.value}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        <Pressable accessibilityRole="button" style={styles.option} onPress={() => navigation.navigate('MeusPedidos')}>
+          <Ionicons color={colors.primary} name="receipt-outline" size={19} />
+          <Text style={styles.optionText}>Meus pedidos</Text>
+          <Ionicons color={colors.accent} name="chevron-forward" size={18} />
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          style={styles.option}
+          onPress={() => {
+            cart.clear();
+            logout();
+          }}
+        >
+          <Ionicons color={colors.danger} name="log-out-outline" size={19} />
+          <Text style={[styles.optionText, { color: colors.danger }]}>Sair da conta</Text>
+        </Pressable>
       </ScrollView>
-    </SafeAreaView>
+
+      <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.navArea}>
+        <BottomNav active="Perfil" cartCount={cart.count} navigation={navigation} />
+      </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  screen: {
     backgroundColor: colors.background,
     flex: 1,
   },
-  container: {
-    alignItems: 'center',
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+  headerArea: {
+    backgroundColor: colors.primary,
   },
   content: {
-    maxWidth: 480,
-    width: '100%',
+    gap: 12,
+    padding: 16,
   },
-  brandRow: {
+  card: {
     alignItems: 'center',
-    flexDirection: 'row',
-    marginBottom: 48,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    gap: 4,
+    padding: 16,
   },
-  logo: {
-    height: 86,
-    marginLeft: -10,
-    marginRight: 4,
-    width: 132,
-  },
-  brandCopy: {
-    flex: 1,
-  },
-  eyebrow: {
+  avatar: {
     alignItems: 'center',
-    flexDirection: 'row',
-    gap: 6,
+    backgroundColor: colors.primarySoft,
+    borderRadius: 32,
+    height: 64,
+    justifyContent: 'center',
     marginBottom: 4,
+    width: 64,
   },
-  eyebrowText: {
+  avatarText: {
     color: colors.primary,
-    fontFamily,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1.1,
-  },
-  welcome: {
-    color: colors.text,
-    fontFamily,
     fontSize: 22,
     fontWeight: '700',
   },
-  header: {
-    marginBottom: 24,
-  },
-  title: {
+  name: {
     color: colors.text,
-    fontFamily,
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-    lineHeight: 36,
+    fontSize: 17,
+    fontWeight: '600',
   },
-  subtitle: {
+  role: {
     color: colors.textSecondary,
-    fontFamily,
-    fontSize: 15,
-    lineHeight: 22,
-    marginTop: 8,
+    fontSize: 12,
   },
-  menuCard: {
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderColor: colors.primaryLight,
-    borderRadius: 18,
-    borderWidth: 1,
+  row: {
+    alignItems: 'flex-start',
+    alignSelf: 'stretch',
     flexDirection: 'row',
-    minHeight: 92,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 3,
+    gap: 12,
+    paddingVertical: 6,
   },
-  menuCardPressed: {
-    opacity: 0.84,
-    transform: [{ scale: 0.99 }],
-  },
-  iconContainer: {
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: 15,
-    height: 56,
-    justifyContent: 'center',
-    marginRight: 14,
-    width: 56,
-  },
-  cardCopy: {
+  rowText: {
     flex: 1,
   },
-  cardTitle: {
+  rowLabel: {
+    color: colors.textSecondary,
+    fontSize: 11,
+  },
+  rowValue: {
     color: colors.text,
-    fontFamily,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  cardDescription: {
-    color: colors.textSecondary,
-    fontFamily,
     fontSize: 14,
-    lineHeight: 20,
-    marginTop: 3,
   },
-  securityNote: {
+  option: {
     alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
     flexDirection: 'row',
-    gap: 6,
-    justifyContent: 'center',
-    marginTop: 28,
+    gap: 12,
+    padding: 16,
   },
-  securityText: {
-    color: colors.textSecondary,
-    fontFamily,
-    fontSize: 12,
+  optionText: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  navArea: {
+    backgroundColor: colors.surface,
   },
 });
 
